@@ -20,6 +20,11 @@ extern void trapret(void);
 
 static void wakeup1(void *chan);
 
+// /* added to keep track of ticks */
+// uint ticks;
+// struct spinlock tickslock;
+// /* added to keep track of ticks */
+
 void
 pinit(void)
 {
@@ -88,6 +93,9 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->priority = 10;
+
+  cprintf("allocated process[%d] with priority %d\n", p->pid, p->priority);
 
   release(&ptable.lock);
 
@@ -202,6 +210,7 @@ fork(void)
 
   // Clear %eax so that fork returns 0 in the child.
   np->tf->eax = 0;
+  np->priority = curproc->priority; // priority inheritance
 
   for(i = 0; i < NOFILE; i++)
     if(curproc->ofile[i])
@@ -246,6 +255,17 @@ exit(void)
   iput(curproc->cwd);
   end_op();
   curproc->cwd = 0;
+  curproc->T_finish = ticks;
+
+  int turnaround = curproc->T_finish - curproc->T_start;
+
+  cprintf(
+    "Process %d finished with priority %d - turnaround time: %d, waiting time: %d\n",
+    curproc->pid,
+    curproc->priority,
+    turnaround,
+    turnaround - curproc->burst
+  );
 
   acquire(&ptable.lock);
 
@@ -267,6 +287,15 @@ exit(void)
   panic("zombie exit");
 }
 
+// sets process priority
+int
+set_priority(int pri) {
+  struct proc *p = myproc();
+  p->priority = pri;
+  yield(); // give control to scheduler immediately since priority has been changed
+  return 0;
+} 
+
 // Wait for a child process to exit and return its pid.
 // Return -1 if this process has no children.
 int
@@ -275,7 +304,12 @@ wait(void)
   struct proc *p;
   int havekids, pid;
   struct proc *curproc = myproc();
-  
+
+  // if (curproc->priority < 10) {
+  //   cprintf("Adding priority to process[%d]\n", curproc->pid);
+  //   set_priority(curproc->pid, curproc->priority + 1); // add to priority if waiting
+  // }
+
   acquire(&ptable.lock);
   for(;;){
     // Scan through table looking for exited children.
@@ -325,6 +359,7 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
+  struct proc *maxproc;
   
   for(;;){
     // Enable interrupts on this processor.
@@ -332,27 +367,82 @@ scheduler(void)
 
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+    maxproc = ptable.proc;
+
+    // // Find first RUNNABLE
+    // for (p = ptable.proc; p < &ptable.proc[NPROC]; p++) {
+    //   if (p->state == RUNNABLE) {
+    //     maxproc = p;
+    //     break;
+    //   }
+    // }
+
+    // find max proc
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+      
+      if (maxproc->priority >= p->priority) {
+        maxproc = p; 
+      }
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
-
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
     }
+
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      if(p->state != RUNNABLE)
+        continue;
+      
+      // make sure its within legal range [0,31]
+      if (p->pid != maxproc->pid && p->priority > 0) {  
+        p->priority--; // increase its priority since every other process is waiting 
+      }
+      else {
+        if (p->priority < 31) 
+          p->priority++; // decrease its priority since this process is running (maxproc)
+      }
+
+    }
+
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = maxproc;
+    switchuvm(maxproc);
+    maxproc->state = RUNNING;
+    maxproc->burst++;
+    swtch(&(c->scheduler), maxproc->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+
     release(&ptable.lock);
 
   }
+
+  //   // OLD CODE FROM ORIGINAL scheduler function :)
+  //   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  //     if(p->state != RUNNABLE)
+  //       continue;
+
+  //     // Switch to chosen process.  It is the process's job
+  //     // to release ptable.lock and then reacquire it
+  //     // before jumping back to us.
+  //     c->proc = p;
+  //     switchuvm(p);
+  //     p->state = RUNNING;
+
+  //     swtch(&(c->scheduler), p->context);
+  //     switchkvm();
+
+  //     // Process is done running for now.
+  //     // It should have changed its p->state before coming back.
+  //     c->proc = 0;
+  //   }
+  //   release(&ptable.lock);
+
+  // }
 }
 
 // Enter scheduler.  Must hold only ptable.lock
@@ -387,6 +477,9 @@ yield(void)
 {
   acquire(&ptable.lock);  //DOC: yieldlock
   myproc()->state = RUNNABLE;
+
+  // // ADD to priority if yielding
+  // if (myproc()->priority < 10) { myproc()->priority++; } 
   sched();
   release(&ptable.lock);
 }

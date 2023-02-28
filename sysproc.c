@@ -14,6 +14,17 @@ sys_fork(void)
 }
 
 int
+sys_set_priority(void)
+{
+  int pri;
+  // set priority argument
+  if (argint(0, &pri) < 0) {
+    return -1;
+  }
+  return set_priority(pri);
+}
+
+int
 sys_exit(void)
 {
   exit();
