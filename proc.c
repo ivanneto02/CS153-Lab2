@@ -292,7 +292,7 @@ void getparents(void) {
   // gets the current process
   struct proc *currproc = myproc();
 
-  cprintf("([%d][%d] current) <- ", currproc->pid, currproc->priority);
+  cprintf("([#%d][%d] current) <- ", currproc->pid, currproc->priority);
 
   int i = 1;
   while (currproc->parent != 0) {
@@ -301,10 +301,10 @@ void getparents(void) {
     currproc = currproc->parent;
 
     if (currproc->parent) {
-        cprintf("([%d][%d] parent%d) <- ", currproc->pid, currproc->priority, i);
+        cprintf("([#%d][%d] parent%d) <- ", currproc->pid, currproc->priority, i);
     }
     else {
-        cprintf("([%d][%d] init)\n", currproc->pid, currproc->priority);
+        cprintf("([#%d][%d] init)\n", currproc->pid, currproc->priority);
     }
 
     i = i + 1;
@@ -348,13 +348,15 @@ wait(void)
       if(p->state == ZOMBIE){
         // Found one.
 
-        // swap priorities if the child we're waiting for has a lower priority than the current process
-        // if (p->priority > curproc->priority) {
-        //   int temp_prior = curproc->priority; 
-        //   curproc->priority = p->priority;  
-        //   p->priority = temp_prior; 
-        // }
-        // cprintf("swap");
+        if (p->priority > curproc->priority) {
+          cprintf(" > (Inheritance) Process #%d(%d) inherits #%d(%d)'s priority (%d)\n",
+          p->pid, p->priority,
+          curproc->pid, curproc->priority,
+          curproc->priority);
+
+          // now donate priority
+          p->priority = curproc->priority;
+        }
 
         pid = p->pid;
         kfree(p->kstack);
