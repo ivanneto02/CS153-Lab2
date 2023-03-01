@@ -419,25 +419,37 @@ scheduler(void)
         continue;
       
       if (maxproc->priority >= p->priority) {
+        if (maxproc->priority > 0) {
+          maxproc->priority--;
+        }
         maxproc = p; 
       }
-
-    }
-
-    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
-      if(p->state != RUNNABLE)
-        continue;
-      
-      // make sure its within legal range [0,31]
-      if (p->pid != maxproc->pid && p->priority > 0) {  
-        p->priority--; // increase its priority since every other process is waiting 
-      }
       else {
-        if (p->priority < 31) 
-          p->priority++; // decrease its priority since this process is running (maxproc)
+        if (p->priority > 0) {
+          p->priority--;
+        }
       }
 
     }
+
+    if (maxproc->priority < 31) {
+      maxproc->priority++;
+    }
+
+    // for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    //   if(p->state != RUNNABLE)
+    //     continue;
+      
+    //   // make sure its within legal range [0,31]
+    //   if ( (p != maxproc) && (p->priority > 0)) {  
+    //     p->priority--; // increase its priority since every other process is waiting 
+    //   }
+    //   else {
+    //     if (p->priority < 31) 
+    //       p->priority++; // decrease its priority since this process is running (maxproc)
+    //   }
+
+    // }
 
     // Switch to chosen process.  It is the process's job
     // to release ptable.lock and then reacquire it
