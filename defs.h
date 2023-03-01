@@ -187,6 +187,7 @@ int             copyout(pde_t*, uint, void*, uint);
 void            clearpteu(pde_t *pgdir, char *uva);
 
 // added
+void            getparents(void);
 int             set_priority(int);
 
 // number of elements in fixed-size array

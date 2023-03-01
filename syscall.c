@@ -106,6 +106,7 @@ extern int sys_uptime(void);
 
 // added
 extern int sys_set_priority(void);
+extern int sys_getparents(void); 
 
 static int (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,9 +131,11 @@ static int (*syscalls[])(void) = {
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
 [SYS_set_priority] sys_set_priority,
+[SYS_getparents] sys_getparents,
 };
 
 void
+
 syscall(void)
 {
   int num;

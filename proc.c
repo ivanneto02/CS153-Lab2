@@ -287,11 +287,37 @@ exit(void)
   panic("zombie exit");
 }
 
+void getparents(void) {
+  
+  // gets the current process
+  struct proc *currproc = myproc();
+
+  cprintf("([%d][%d] current) <- ", currproc->pid, currproc->priority);
+
+  int i = 1;
+  while (currproc->parent != 0) {
+
+    // get the next parent process
+    currproc = currproc->parent;
+
+    if (currproc->parent) {
+        cprintf("([%d][%d] parent%d) <- ", currproc->pid, currproc->priority, i);
+    }
+    else {
+        cprintf("([%d][%d] init)\n", currproc->pid, currproc->priority);
+    }
+
+    i = i + 1;
+
+  }
+
+}
+
 // sets process priority
 int
 set_priority(int pri) {
   struct proc *p = myproc();
-  p->priority = pri;
+  p->priority = pri % 32; // only allow it to set within a range of 0-31 
   yield(); // give control to scheduler immediately since priority has been changed
   return 0;
 } 
@@ -318,8 +344,18 @@ wait(void)
       if(p->parent != curproc)
         continue;
       havekids = 1;
+
       if(p->state == ZOMBIE){
         // Found one.
+
+        // swap priorities if the child we're waiting for has a lower priority than the current process
+        // if (p->priority > curproc->priority) {
+        //   int temp_prior = curproc->priority; 
+        //   curproc->priority = p->priority;  
+        //   p->priority = temp_prior; 
+        // }
+        // cprintf("swap");
+
         pid = p->pid;
         kfree(p->kstack);
         p->kstack = 0;

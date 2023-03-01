@@ -24,6 +24,11 @@ sys_set_priority(void)
   return set_priority(pri);
 }
 
+int sys_getparents(void) {
+  getparents();
+  return 0;
+}
+
 int
 sys_exit(void)
 {

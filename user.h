@@ -26,6 +26,7 @@ int uptime(void);
 
 // added
 int set_priority(int);
+int getparents();
 
 // ulib.c
 int stat(const char*, struct stat*);
